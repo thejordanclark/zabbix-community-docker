@@ -21,11 +21,11 @@ ENV \
   ZS_PidFile=/var/run/zabbix_server.pid \
   ZS_DBHost=zabbix.db \
   ZS_DBName=zabbix \
-  ZS_DBSchema="" \
+  ZS_DBSchema="public" \
   ZS_DBUser=zabbix \
   ZS_DBPassword=zabbix \
-  ZS_DBSocket=/tmp/mysql.sock \
-  ZS_DBPort=3306 \
+  ZS_DBSocket=/tmp/.s.PGSQL.5432 \
+  ZS_DBPort=5432 \
   ZS_StartPollers=5 \
   ZS_StartPollersUnreachable=1 \
   ZS_StartTrappers=5 \
@@ -103,7 +103,7 @@ RUN \
   yum install -y --enablerepo=remi-php56 php-fpm \
        php-gd php-bcmath php-ctype php-xml php-xmlreader php-xmlwriter \
        php-session php-net-socket php-mbstring php-gettext php-cli \
-       php-mysqlnd php-opcache php-pdo php-snmp php-ldap && \
+       php-mysqlnd php-pgsql php-opcache php-pdo php-snmp php-ldap && \
   yum clean all && rm -rf /tmp/*
 ADD container-files-base /
 
@@ -115,10 +115,10 @@ RUN \
   yum install -y tar svn gcc automake make nmap traceroute iptstate wget \
               net-snmp-devel net-snmp-libs net-snmp net-snmp-perl iksemel \
               net-snmp-python net-snmp-utils java-1.8.0-openjdk python-pip \
-              java-1.8.0-openjdk-devel mariadb-devel libxml2-devel gettext \
-              libcurl-devel OpenIPMI-devel mysql iksemel-devel libssh2-devel \
-              unixODBC unixODBC-devel mysql-connector-odbc postgresql-odbc \
-              openldap-devel net-tools snmptt sudo && \
+              java-1.8.0-openjdk-devel libxml2-devel postgresql-devel gettext \
+              libcurl-devel OpenIPMI-devel postgresql iksemel-devel \
+              libssh2-devel unixODBC unixODBC-devel mysql-connector-odbc \
+              postgresql-odbc openldap-devel net-tools snmptt sudo && \
  `# reinstall glibc for locales` \
   yum -y -q reinstall glibc-common && \
   cp /usr/local/etc/zabbix_agend.conf /tmp && \
@@ -129,7 +129,7 @@ RUN \
   sed -i "s/ZABBIX_VERSION_RC.*\"\(.*\)\"/ZABBIX_VERSION_RC \"\1 (${DATE})\"/g" include/version.h && \
   sed -i "s/String VERSION =.*\"\(.*\)\"/String VERSION = \"\1 (${DATE})\"/g" src/zabbix_java/src/com/zabbix/gateway/GeneralInformation.java && \
   ./bootstrap.sh && \
-  ./configure --enable-server --enable-agent --with-mysql --enable-java \
+  ./configure --enable-server --enable-agent --with-postgresql --enable-java \
               --with-net-snmp --with-libcurl --with-libxml2 --with-openipmi \
               --enable-ipv6 --with-jabber --with-openssl --with-ssh2 \
               --with-ldap  --with-unixodbc && \
@@ -143,7 +143,7 @@ RUN \
   ./autogen.sh && \
   ./configure --prefix=/usr --enable-ipv6 --enable-ipv4 && \
   make && \
-  make install && \  
+  make install && \
   setcap cap_net_raw+ep /usr/sbin/fping || echo 'Warning: setcap cap_net_raw+ep /usr/sbin/fping' && \
   setcap cap_net_raw+ep /usr/sbin/fping6 || echo 'Warning: setcap cap_net_raw+ep /usr/sbin/fping6' && \
   chmod 4710 /usr/sbin/fping && \
@@ -154,7 +154,7 @@ RUN \
   rm -rf 3.10.tar.gz && \
   cd /usr/local/src/zabbix/frontends/php && \
   locale/make_mo.sh && \
-  yum autoremove -y gettext python-pip tar svn gcc automake mariadb-devel \
+  yum autoremove -y gettext python-pip tar svn gcc automake postgresql-devel \
                     java-1.8.0-openjdk-devel libxml2-devel libcurl-devel \
                     OpenIPMI-devel iksemel-devel && \
   yum install -y OpenIPMI-libs && \

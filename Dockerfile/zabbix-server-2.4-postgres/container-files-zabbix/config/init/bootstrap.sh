@@ -21,14 +21,13 @@ error() {
   echo "${bold}${red}[ERROR `date +'%T'`]${reset} ${red}$@${reset}";
 }
 create_db() {
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -e "CREATE DATABASE IF NOT EXISTS ${ZS_DBName} CHARACTER SET utf8;"
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -e "GRANT ALL ON ${ZS_DBName}.* TO '${ZS_DBUser}'@'%' identified by '${ZS_DBPassword}';"
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -e "flush privileges;"
+  export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -c "CREATE DATABASE ${ZS_DBName};"
+  export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${ZS_DBName} TO ${ZS_DBUser};"
 }
 import_zabbix_db() {
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -D ${ZS_DBName} < ${ZABBIX_SQL_DIR}/schema.sql
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -D ${ZS_DBName} < ${ZABBIX_SQL_DIR}/images.sql
-  mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -D ${ZS_DBName} < ${ZABBIX_SQL_DIR}/data.sql
+  export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} ${ZS_DBName} < ${ZABBIX_SQL_DIR}/schema.sql
+  export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} ${ZS_DBName} < ${ZABBIX_SQL_DIR}/images.sql
+  export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} ${ZS_DBName} < ${ZABBIX_SQL_DIR}/data.sql
 }
 logging() {
   mkdir -p /var/log/zabbix
@@ -147,7 +146,7 @@ update_config() {
 }
 ####################### End of default settings #######################
 # Zabbix default sql files
-ZABBIX_SQL_DIR="/usr/local/src/zabbix/database/mysql"
+ZABBIX_SQL_DIR="/usr/local/src/zabbix/database/postgresql"
 # load DB config from custom config file if exist
 if [ -f /etc/custom-config/zabbix_server.conf ]; then
   FZS_DBPassword=$(grep ^DBPassword= /etc/custom-config/zabbix_server.conf | awk -F= '{print $2}')
@@ -182,7 +181,7 @@ log "Done"
 
 # wait 120sec for DB
 retry=24
-until mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -e "exit" &>/dev/null
+until export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -c "\q" &>/dev/null
 do
   log "Waiting for database, it's still not available"
   retry=`expr $retry - 1`
@@ -194,7 +193,7 @@ do
 done
 
 log "Checking if database exists or fresh install is required"
-if ! mysql -u ${ZS_DBUser} -p${ZS_DBPassword} -h ${ZS_DBHost} -P ${ZS_DBPort} -e "use ${ZS_DBName};" &>/dev/null; then
+if ! export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -l | cut -d" " -f2 | grep ${ZS_DBName} | wc -l; then
   warning "Zabbix database doesn't exists. Installing and importing default settings"
   log `create_db`
   log "Database and user created, importing default SQL"
