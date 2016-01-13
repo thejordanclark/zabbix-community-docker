@@ -192,15 +192,24 @@ do
   sleep 5
 done
 
-log "Checking if database exists or fresh install is required"
-if ! export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -l | cut -d" " -f2 | grep ${ZS_DBName} | wc -l; then
+log "Checking if database exists and if a fresh install is required"
+ZDBEXISTS=`export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} postgres -l | grep ${ZS_DBName} | cut -d"|" -f1 | sed 's/ //g' | grep ^${ZS_DBName}$ | wc -l`
+if [ "${ZDBEXISTS}" == "1" ]; then
+  log "Zabbix database exists, Checking if it has application data"
+  ZDBCONTENT=`export PGPASSWORD=${ZS_DBPassword}; psql -U ${ZS_DBUser} -h ${ZS_DBHost} -p ${ZS_DBPort} ${ZS_DBName} -c "\dt hosts" | grep hosts | cut -d "|" -f2 | sed 's/ //g' | grep ^hosts$ | wc -l`
+  if [ "${ZDBCONTENT}" == "1" ]; then
+    log "Zabbix database has application data, Starting Server"
+  else
+    log "Zabbix database has no application data, Initializing database"
+    log `import_zabbix_db`
+    log "Import finished, starting"
+  fi
+else
   warning "Zabbix database doesn't exists. Installing and importing default settings"
   log `create_db`
   log "Database and user created, importing default SQL"
   log `import_zabbix_db`
   log "Import finished, starting"
-else
-  log "Zabbix database exists, starting server"
 fi
 # TODO wait for zabbix-server start with API actions
 #python /config/pyzabbix.py 2>/dev/null
